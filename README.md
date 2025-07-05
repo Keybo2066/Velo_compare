@@ -144,14 +144,33 @@ AnnData object with n_obs × n_vars = 50000 × 20000
 
 ### Sample Data
 
-*(Note: Add information about sample datasets or data availability here)*
+This pipeline was developed and tested using the following datasets:
 
-<!-- 
-TODO: Add sample data information
-- Link to example datasets
-- Data download instructions
-- Expected file sizes and formats
--->
+#### Primary Dataset: Gata1 Chimeric Embryo scRNA-seq
+- **GEO Accession**: [GSE167576](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE167576)
+- **Description**: Single-cell RNA sequencing of Gata1 knockout chimeric mouse embryos at E8.5
+- **Publication**: Barile et al. (2021) "Coordinated changes in gene expression kinetics underlie both mouse and human erythroid maturation" *Genome Biology* 22:197
+- **DOI**: [10.1186/s13059-021-02414-y](https://doi.org/10.1186/s13059-021-02414-y)
+
+#### Dataset Features:
+- **Species**: Mouse (*Mus musculus*)
+- **Development Stage**: E8.5 embryos
+- **Cell Types**: Hematopoietic lineages (erythroid, megakaryocyte, myeloid, etc.)
+- **Conditions**: Wild-type (WT) vs Gata1 knockout (KO) cells
+- **Technology**: 10X Genomics scRNA-seq (version 3 chemistry)
+- **Cell Count**: ~16,000 cells (8,420 WT + 7,944 KO)
+
+#### Data Structure:
+```
+Required obs columns:
+- 'tomato': 'neg' (WT) / 'pos' (KO) 
+- 'haem_subclust_grouped': Cell type annotations
+
+Required layers:
+- 'Ms': Spliced mRNA counts
+- 'Mu': Unspliced mRNA counts
+```
+For detailed experimental protocols and data processing methods, please refer to the original publication.
 
 ## Model Architecture
 

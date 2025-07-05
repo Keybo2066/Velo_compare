@@ -1,177 +1,232 @@
-# WT-KO Contrastive VAE
+# WTKO RNA Velocity + Contrastive Learning Pipeline
 
-球面上の対照学習を用いた野生型(WT)とノックアウト(KO)の単一細胞RNA-seq解析用変分オートエンコーダ
+A comprehensive pipeline for comparing Wild-Type (WT) and Knockout (KO) cells using RNA velocity analysis and contrastive learning techniques.
 
-## 概要
+## Overview
 
-このパッケージは、WTとKO間での細胞タイプの対応関係を保持しながら、scRNA-seqデータを低次元空間に埋め込むための対照的変分オートエンコーダ（Contrastive VAE）を実装しています。主な特徴：
+This pipeline integrates **RNA velocity analysis** with **contrastive learning** to enable direct comparison of cellular dynamics between WT and KO conditions. The framework uses a Variational Autoencoder (VAE) with contrastive learning to learn shared latent representations where cells of the same type from different conditions are brought together while maintaining biological meaningful separations.
 
-- **球面VAE**: 潜在空間を単位球面上に制約することで安定した表現学習を実現
-- **対照学習**: 同一細胞タイプのWT/KO細胞を潜在空間で近づける損失関数
-- **クラスタ整列**: 同一細胞タイプの細胞をクラスタ中心に引き寄せる正則化
-- **RNA velocity統合**: 細胞状態変化の方向性を考慮した解析
-- **包括的可視化**: UMAPプロット、グリッドベース速度場など多様な可視化ツール
+### Key Features
 
-## インストール
+- 🧬 **RNA Velocity Analysis**: High-precision velocity estimation using VELOVI
+- 🤖 **Contrastive Learning**: Novel VAE architecture for WT/KO comparison
+- 🎯 **Cell Type Alignment**: Symmetric contrastive loss for cross-condition alignment
+- 📊 **Grid-based Visualization**: Velocity field visualization in latent space
+- 🔄 **End-to-End Pipeline**: From raw data to publication-ready visualizations
 
-### PyPI からのインストール (公開後)
-```bash
-pip install wt-ko-contrastive-vae
+## Repository Structure
+
+```
+├── source/                    # Core implementation
+│   ├── models.py             # WTKOContrastiveVAE and loss functions
+│   ├── trainers.py           # Training and inference utilities
+│   ├── data.py               # Data loading and preprocessing
+│   └── utils.py              # Visualization and analysis functions
+├── tutorials/                # Usage examples and tutorials
+│   └── sample_use.ipynb      # Complete pipeline demonstration
+├── requirements.txt          # Package dependencies
+├── setup.py                  # Package installation script
+├── LICENSE                   # License information
+└── README.md                 # This file
 ```
 
-### ソースからのインストール
+## Installation
+
+### Prerequisites
+
+- Python 3.8 or higher
+- CUDA-compatible GPU (optional, for faster training)
+
+### Quick Installation
+
 ```bash
-git clone https://github.com/yourusername/wt-ko-contrastive-vae.git
-cd wt-ko-contrastive-vae
-pip install -e .
+# Clone the repository
+git clone https://github.com/Keybo2066/wtko-pipeline.git
+cd wtko-pipeline
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-## 使用例
+## Quick Start
 
-### 基本的な使用方法
+### 1. Import and Setup
 
 ```python
-import numpy as np
-import torch
-from wt_ko_contrastive_vae import WTKOContrastiveVAE, WTKOTrainer, create_wt_ko_dataloaders
+import sys
+sys.path.append('path/to/wtko-pipeline/source')
 
-# データの準備
-n_cells = 1000
-n_genes = 2000
-n_cell_types = 5
+from models import WTKOContrastiveVAE
+from trainers import WTKOTrainer
+from data import create_wt_ko_dataloaders
+```
 
-# ダミーデータの作成
-wt_data = np.random.rand(n_cells, n_genes).astype(np.float32)
-ko_data = np.random.rand(n_cells, n_genes).astype(np.float32)
-wt_labels = np.random.randint(0, n_cell_types, n_cells)
-ko_labels = np.random.randint(0, n_cell_types, n_cells)
+### 2. Load and Preprocess Data
 
-# データローダー作成
-wt_loader, ko_loader = create_wt_ko_dataloaders(
-    wt_data, wt_labels, ko_data, ko_labels, batch_size=64
-)
+```python
+import scanpy as sc
 
-# モデル初期化
+# Load your single-cell data
+adata = sc.read_h5ad('your_data.h5ad')
+
+# Separate WT and KO cells
+adata_wt = adata[adata.obs['condition'] == 'WT'].copy()
+adata_ko = adata[adata.obs['condition'] == 'KO'].copy()
+```
+
+### 3. Train the Model
+
+```python
+# Initialize model
 model = WTKOContrastiveVAE(
     input_dim=n_genes,
     latent_dim=10,
-    hidden_dims=(128, 64),
-    lambda_contrast=1.0,
-    lambda_align=0.5
+    lambda_contrast=10,
+    lambda_align=10
 )
 
-# モデル学習
+# Train
 trainer = WTKOTrainer(model)
-history = trainer.train(
-    wt_loader=wt_loader,
-    ko_loader=ko_loader,
-    num_epochs=50,
-    lr=1e-3
-)
+history = trainer.train(wt_loader, ko_loader, num_epochs=400)
+```
 
-# 潜在表現の取得
+### 4. Visualize Results
+
+```python
+# Get latent representations
 wt_latent, wt_labels = trainer.get_latent_representations(wt_loader)
 ko_latent, ko_labels = trainer.get_latent_representations(ko_loader)
+
+# Generate visualizations
+from utils import plot_combined_latent_space
+plot_combined_latent_space(wt_embedding, ko_embedding, wt_labels, ko_labels, cell_type_names)
 ```
 
-### 可視化
+## Detailed Usage
+
+For a complete walkthrough, see the tutorial notebook:
+- [`tutorials/sample_use.ipynb`](tutorials/sample_use.ipynb) - Complete pipeline demonstration
+
+## Data Requirements
+
+### Input Data Format
+
+Your single-cell data should be provided as an AnnData object (`.h5ad` file) with the following requirements:
+
+#### Required `obs` (cell metadata) columns:
+- **Cell type annotations**: Column containing cell type labels (e.g., `'cell_type'`, `'haem_subclust_grouped'`)
+- **Condition labels**: Column distinguishing WT from KO cells (e.g., `'tomato'` with `'neg'`/`'pos'` values)
+
+#### Required `layers` (expression matrices):
+- **`'Ms'`**: Spliced mRNA counts
+- **`'Mu'`**: Unspliced mRNA counts
+
+#### Required `var` (gene metadata):
+- Gene symbols as index or in a specific column
+
+### Data Preprocessing
+
+The pipeline includes automatic preprocessing steps:
+1. **Quality filtering**: Remove low-quality cells and genes
+2. **MURK gene removal**: Filter mitochondrial and ribosomal genes
+3. **Normalization**: Log-normalization and scaling
+4. **Gene filtering**: Velocity-based gene selection
+
+### Example Data Structure
 
 ```python
-import umap
-from wt_ko_contrastive_vae import plot_latent_space, plot_combined_latent_space
-
-# UMAPで2次元に投影
-reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, n_components=2, random_state=42)
-combined_latent = np.vstack([wt_latent.cpu().numpy(), ko_latent.cpu().numpy()])
-combined_embedding = reducer.fit_transform(combined_latent)
-
-# 投影結果を分割
-wt_embedding = combined_embedding[:len(wt_latent)]
-ko_embedding = combined_embedding[len(wt_latent):]
-
-# 細胞タイプの名前
-cell_type_names = [f"CellType_{i}" for i in range(n_cell_types)]
-
-# 二枚のUMAP図
-plot_latent_space(
-    wt_embedding=wt_embedding,
-    ko_embedding=ko_embedding,
-    wt_labels=wt_labels.cpu().numpy(),
-    ko_labels=ko_labels.cpu().numpy(),
-    cell_type_names=cell_type_names
-)
-
-# WT/KOを一枚のUMAP図に
-plot_combined_latent_space(
-    wt_embedding=wt_embedding,
-    ko_embedding=ko_embedding,
-    wt_labels=wt_labels.cpu().numpy(),
-    ko_labels=ko_labels.cpu().numpy(),
-    cell_type_names=cell_type_names
-)
+AnnData object with n_obs × n_vars = 50000 × 20000
+    obs: 'cell_type', 'condition', 'tomato', ...
+    var: 'gene_symbol', 'highly_variable', ...
+    layers: 'Ms', 'Mu', 'velocity'
+    obsm: 'X_pca', 'X_umap'
 ```
 
-### RNA velocityとの統合
+### Sample Data
 
-```python
-from wt_ko_contrastive_vae import plot_latent_space_with_grid_velocity
+*(Note: Add information about sample datasets or data availability here)*
 
-# 速度ベクトルのシミュレーション（実際のデータではscVelo等から取得）
-wt_velocity = np.random.randn(wt_embedding.shape[0], 2) * 0.1
-ko_velocity = np.random.randn(ko_embedding.shape[0], 2) * 0.1
+<!-- 
+TODO: Add sample data information
+- Link to example datasets
+- Data download instructions
+- Expected file sizes and formats
+-->
 
-# グリッドベースの速度場可視化
-plot_latent_space_with_grid_velocity(
-    wt_embedding=wt_embedding,
-    ko_embedding=ko_embedding,
-    wt_labels=wt_labels.cpu().numpy(),
-    ko_labels=ko_labels.cpu().numpy(),
-    cell_type_names=cell_type_names,
-    wt_velocity=wt_velocity,
-    ko_velocity=ko_velocity,
-    grid_size=20,
-    min_cells=5
-)
-```
+## Model Architecture
 
-## 要件
+### WTKOContrastiveVAE
 
-- Python >= 3.8
-- PyTorch >= 1.10.0
-- NumPy >= 1.20.0
-- Pandas >= 1.3.0
-- Matplotlib >= 3.4.0
-- Seaborn >= 0.11.0
-- scikit-learn >= 1.0.0
-- UMAP-learn >= 0.5.0
-- AnnData >= 0.8.0
-- scikit-learn >= 1.0.0
+The core model combines several key components:
 
-詳細な依存関係については `requirements.txt` を参照してください。
+1. **Encoder Network**: Maps gene expression to latent space
+2. **Decoder Network**: Reconstructs gene expression from latent representations  
+3. **Contrastive Learning**: Aligns same cell types across WT/KO conditions
+4. **Cluster Alignment**: Maintains cell type structure in latent space
 
-## 引用
+### Loss Functions
 
-本パッケージを研究で使用される場合は、以下のように引用してください：
+- **Reconstruction Loss**: MSE between input and reconstructed expression
+- **Contrastive Loss**: Symmetric alignment of WT/KO cell types
+- **Cluster Alignment Loss**: Intra-cell-type cohesion
+- **KL Divergence**: Regularization term
 
-```bibtex
-@software{wt_ko_contrastive_vae,
-  title={WT-KO Contrastive VAE},
-  author={Your Name},
-  year={2024},
-  url={https://github.com/yourusername/wt-ko-contrastive-vae}
-}
-```
+## Parameters and Configuration
 
-## ライセンス
+### Key Hyperparameters
 
-MIT ライセンスのもとで公開されています。詳細は [LICENSE](LICENSE) ファイルを参照してください。
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `latent_dim` | 10 | Dimensionality of latent space |
+| `lambda_contrast` | 10 | Weight for contrastive loss |
+| `lambda_align` | 10 | Weight for cluster alignment loss |
+| `tau` | 0.3 | Temperature parameter for contrastive learning |
+| `hidden_dims` | (256, 128, 64) | Hidden layer dimensions |
+| `dropout_prob` | 0.2 | Dropout probability |
 
-## 開発者情報
+### Training Parameters
 
-- 作者名
-- 所属機関
-- メールアドレス
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `num_epochs` | 400 | Number of training epochs |
+| `lr` | 1e-3 | Learning rate |
+| `weight_decay` | 1e-3 | L2 regularization |
+| `batch_size` | 256 | Batch size for training |
 
-## 貢献
+## Visualization Options
 
-貢献は大歓迎です！バグレポート、改善提案、プルリクエストは [GitHub Issues](https://github.com/yourusername/wt-ko-contrastive-vae/issues) にてお待ちしています。
+The pipeline provides several visualization methods:
+
+1. **Latent Space UMAP**: 2D projection of learned representations
+2. **Combined Visualization**: WT/KO cells in shared space
+3. **Grid-based Velocity Fields**: Velocity vectors in latent space
+
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+
+## Acknowledgments
+
+- [scVelo](https://scvelo.readthedocs.io/) for RNA velocity analysis foundations
+- [VELOVI](https://docs.scvi-tools.org/en/stable/api/reference/scvi.external.VELOVI.html) for advanced velocity inference
+- [scanpy](https://scanpy.readthedocs.io/) for single-cell analysis ecosystem
+- PyTorch community for deep learning framework
+
+## Support
+
+- **Issues**: Please report bugs via [GitHub Issues](https://github.com/Keybo2066/wtko-pipeline/issues)
+- **Contact**: [ctmk0009@mail4.doshisha.ac.jp](mailto:ctmk0009@mail4.doshisha.ac.jp)
+
+## Changelog
+
+### Version 1.0.0 (Current)
+- Initial release
+- Complete WTKO contrastive learning pipeline
+- Tutorial notebook and documentation
+- Grid-based velocity visualization
+
+---
+
+**Last Updated**: July 2025

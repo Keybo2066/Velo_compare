@@ -1,15 +1,15 @@
-# WTKO RNA Velocity + Contrastive Learning Pipeline
+# RNA Velocity Cross-Condition Analysis Pipeline
 
-A comprehensive pipeline for comparing Wild-Type (WT) and Knockout (KO) cells using RNA velocity analysis and contrastive learning techniques.
+A comprehensive pipeline for comparing cellular dynamics between two experimental conditions using RNA velocity analysis and contrastive learning techniques.
 
 ## Overview
 
-This pipeline integrates **RNA velocity analysis** with **contrastive learning** to enable direct comparison of cellular dynamics between WT and KO conditions. The framework uses a Variational Autoencoder (VAE) with contrastive learning to learn shared latent representations where cells of the same type from different conditions are brought together while maintaining biological meaningful separations.
+This pipeline integrates RNA velocity analysis with deep learning techniques to enable direct comparison of cellular dynamics between different experimental conditions. The framework uses a Variational Autoencoder (VAE) to learn shared latent representations where cells of the same type from different conditions are aligned while maintaining biologically meaningful separations.
 
 ### Key Features
 
 - 🧬 **RNA Velocity Analysis**: High-precision velocity estimation using VELOVI
-- 🤖 **Contrastive Learning**: Novel VAE architecture for WT/KO comparison
+- 🤖 **Contrastive Learning**: Novel VAE architecture for cross-condition comparison
 - 🎯 **Cell Type Alignment**: Symmetric contrastive loss for cross-condition alignment
 - 📊 **Grid-based Visualization**: Velocity field visualization in latent space
 - 🔄 **End-to-End Pipeline**: From raw data to publication-ready visualizations
@@ -18,7 +18,7 @@ This pipeline integrates **RNA velocity analysis** with **contrastive learning**
 
 ```
 ├── source/                    # Core implementation
-│   ├── models.py             # WTKOContrastiveVAE and loss functions
+│   ├── models.py             # CrossConditionContrastiveVAE and loss functions
 │   ├── trainers.py           # Training and inference utilities
 │   ├── data.py               # Data loading and preprocessing
 │   └── utils.py              # Visualization and analysis functions
@@ -41,8 +41,8 @@ This pipeline integrates **RNA velocity analysis** with **contrastive learning**
 
 ```bash
 # Clone the repository
-git clone https://github.com/Keybo2066/wtko-pipeline.git
-cd wtko-pipeline
+git clone https://github.com/Keybo2066/Velo_compare.git
+cd Velo_compare
 
 # Install dependencies
 pip install -r requirements.txt
@@ -54,11 +54,11 @@ pip install -r requirements.txt
 
 ```python
 import sys
-sys.path.append('path/to/wtko-pipeline/source')
+sys.path.append('path/to/Velo_compare/source')
 
-from models import WTKOContrastiveVAE
-from trainers import WTKOTrainer
-from data import create_wt_ko_dataloaders
+from models import CrossConditionContrastiveVAE
+from trainers import CrossConditionTrainer
+from data import create_condition_dataloaders
 ```
 
 ### 2. Load and Preprocess Data
@@ -69,16 +69,16 @@ import scanpy as sc
 # Load your single-cell data
 adata = sc.read_h5ad('your_data.h5ad')
 
-# Separate WT and KO cells
-adata_wt = adata[adata.obs['condition'] == 'WT'].copy()
-adata_ko = adata[adata.obs['condition'] == 'KO'].copy()
+# Separate conditions (e.g., treated vs control, timepoint1 vs timepoint2)
+adata_condition1 = adata[adata.obs['condition'] == 'condition1'].copy()
+adata_condition2 = adata[adata.obs['condition'] == 'condition2'].copy()
 ```
 
 ### 3. Train the Model
 
 ```python
 # Initialize model
-model = WTKOContrastiveVAE(
+model = CrossConditionContrastiveVAE(
     input_dim=n_genes,
     latent_dim=10,
     lambda_contrast=10,
@@ -86,26 +86,22 @@ model = WTKOContrastiveVAE(
 )
 
 # Train
-trainer = WTKOTrainer(model)
-history = trainer.train(wt_loader, ko_loader, num_epochs=400)
+trainer = CrossConditionTrainer(model)
+history = trainer.train(condition1_loader, condition2_loader, num_epochs=400)
 ```
 
 ### 4. Visualize Results
 
 ```python
 # Get latent representations
-wt_latent, wt_labels = trainer.get_latent_representations(wt_loader)
-ko_latent, ko_labels = trainer.get_latent_representations(ko_loader)
+condition1_latent, condition1_labels = trainer.get_latent_representations(condition1_loader)
+condition2_latent, condition2_labels = trainer.get_latent_representations(condition2_loader)
 
 # Generate visualizations
 from utils import plot_combined_latent_space
-plot_combined_latent_space(wt_embedding, ko_embedding, wt_labels, ko_labels, cell_type_names)
+plot_combined_latent_space(condition1_embedding, condition2_embedding, 
+                          condition1_labels, condition2_labels, cell_type_names)
 ```
-
-## Detailed Usage
-
-For a complete walkthrough, see the tutorial notebook:
-- [`tutorials/sample_use.ipynb`](tutorials/sample_use.ipynb) - Complete pipeline demonstration
 
 ## Data Requirements
 
@@ -115,28 +111,25 @@ Your single-cell data should be provided as an AnnData object (`.h5ad` file) wit
 
 #### Required `obs` (cell metadata) columns:
 - **Cell type annotations**: Column containing cell type labels (e.g., `'cell_type'`, `'haem_subclust_grouped'`)
-- **Condition labels**: Column distinguishing WT from KO cells (e.g., `'tomato'` with `'neg'`/`'pos'` values)
+- **Condition labels**: Column distinguishing between experimental conditions (e.g., `'treatment'` with `'control'`/`'treated'` values)
 
 #### Required `layers` (expression matrices):
 - **`'Ms'`**: Spliced mRNA counts
 - **`'Mu'`**: Unspliced mRNA counts
 
-#### Required `var` (gene metadata):
-- Gene symbols as index or in a specific column
 
 ### Data Preprocessing
 
-The pipeline includes automatic preprocessing steps:
+The pipeline includes preprocessing steps:
 1. **Quality filtering**: Remove low-quality cells and genes
-2. **MURK gene removal**: Filter mitochondrial and ribosomal genes
-3. **Normalization**: Log-normalization and scaling
-4. **Gene filtering**: Velocity-based gene selection
+2. **Normalization**: Log-normalization and scaling
+3. **Gene filtering**: Velocity-based gene selection
 
 ### Example Data Structure
 
 ```python
 AnnData object with n_obs × n_vars = 50000 × 20000
-    obs: 'cell_type', 'condition', 'tomato', ...
+    obs: 'cell_type', 'condition', 'treatment_status', ...
     var: 'gene_symbol', 'highly_variable', ...
     layers: 'Ms', 'Mu', 'velocity'
     obsm: 'X_pca', 'X_umap'
@@ -148,7 +141,7 @@ This pipeline was developed and tested using the following datasets:
 
 #### Primary Dataset: Gata1 Chimeric Embryo scRNA-seq
 - **GEO Accession**: [GSE167576](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE167576)
-- **Description**: Single-cell RNA sequencing of Gata1 knockout chimeric mouse embryos at E8.5
+- **Description**: Single-cell RNA sequencing comparing knockout and control conditions in mouse embryos at E8.5
 - **Publication**: Barile et al. (2021) "Coordinated changes in gene expression kinetics underlie both mouse and human erythroid maturation" *Genome Biology* 22:197
 - **DOI**: [10.1186/s13059-021-02414-y](https://doi.org/10.1186/s13059-021-02414-y)
 
@@ -156,37 +149,38 @@ This pipeline was developed and tested using the following datasets:
 - **Species**: Mouse (*Mus musculus*)
 - **Development Stage**: E8.5 embryos
 - **Cell Types**: Hematopoietic lineages (erythroid, megakaryocyte, myeloid, etc.)
-- **Conditions**: Wild-type (WT) vs Gata1 knockout (KO) cells
+- **Conditions**: Control vs knockout conditions
 - **Technology**: 10X Genomics scRNA-seq (version 3 chemistry)
-- **Cell Count**: ~16,000 cells (8,420 WT + 7,944 KO)
+- **Cell Count**: ~16,000 cells (8,420 condition1 + 7,944 condition2)
 
 #### Data Structure:
 ```
 Required obs columns:
-- 'tomato': 'neg' (WT) / 'pos' (KO) 
+- 'treatment_status': 'control' / 'knockout' 
 - 'haem_subclust_grouped': Cell type annotations
 
 Required layers:
 - 'Ms': Spliced mRNA counts
 - 'Mu': Unspliced mRNA counts
 ```
+
 For detailed experimental protocols and data processing methods, please refer to the original publication.
 
 ## Model Architecture
 
-### WTKOContrastiveVAE
+### CrossConditionContrastiveVAE
 
 The core model combines several key components:
 
 1. **Encoder Network**: Maps gene expression to latent space
 2. **Decoder Network**: Reconstructs gene expression from latent representations  
-3. **Contrastive Learning**: Aligns same cell types across WT/KO conditions
+3. **Contrastive Learning**: Aligns same cell types across different conditions
 4. **Cluster Alignment**: Maintains cell type structure in latent space
 
 ### Loss Functions
 
 - **Reconstruction Loss**: MSE between input and reconstructed expression
-- **Contrastive Loss**: Symmetric alignment of WT/KO cell types
+- **Contrastive Loss**: Symmetric alignment of cell types across conditions
 - **Cluster Alignment Loss**: Intra-cell-type cohesion
 - **KL Divergence**: Regularization term
 
@@ -217,32 +211,24 @@ The core model combines several key components:
 The pipeline provides several visualization methods:
 
 1. **Latent Space UMAP**: 2D projection of learned representations
-2. **Combined Visualization**: WT/KO cells in shared space
+2. **Combined Visualization**: Cross-condition cells in shared space
 3. **Grid-based Velocity Fields**: Velocity vectors in latent space
-
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENCE](LICENCE) file for details.
 
 
-## Acknowledgments
-
-- [scVelo](https://scvelo.readthedocs.io/) for RNA velocity analysis foundations
-- [VELOVI](https://docs.scvi-tools.org/en/stable/api/reference/scvi.external.VELOVI.html) for advanced velocity inference
-- [scanpy](https://scanpy.readthedocs.io/) for single-cell analysis ecosystem
-- PyTorch community for deep learning framework
-
 ## Support
 
-- **Issues**: Please report bugs via [GitHub Issues](https://github.com/Keybo2066/wtko-pipeline/issues)
+- **Issues**: Please report bugs via [GitHub Issues](https://github.com/Keybo2066/cross-condition-pipeline/issues)
 - **Contact**: [ctmk0009@mail4.doshisha.ac.jp](mailto:ctmk0009@mail4.doshisha.ac.jp)
 
 ## Changelog
 
 ### Version 1.0.0 (Current)
 - Initial release
-- Complete WTKO contrastive learning pipeline
+- Complete cross-condition contrastive learning pipeline
 - Tutorial notebook and documentation
 - Grid-based velocity visualization
 
